@@ -36,28 +36,50 @@ Program = expressions:Expression+ {
   };
 
 Expression
-  = exp:AssignmentExpression {
-    return {
-      type: "ExpressionStatement",
-      expression: exp
-    };
-  }
+  = exp:(
+    AssignmentExpression / Literal
+    ) {
+      return {
+        type: "ExpressionStatement",
+        expression: exp
+      };
+    }
 
 AssignmentExpression
-  = left:identifier _ ":" _ annotationType:identifier _ "=" _ right:Literal
+  = left:Identifier _ ":" _ annotationType:Identifier _ "=" _ right:(Literal / Function)
   {
     return {
       type: "AssignmentExpression",
       operator: "=",
-      left:{
-        name: left,
-        type: "Identifier",
-        annotationType: annotationType
-      },
+      left: left,
       right: right
     };
   }
 
+
+BlockStatement = Literal {
+  return {
+    type:"BlockStatement",
+    body: []
+  };
+}
+
+Function
+  = "(" _ params: FunctionParams _ ")" _ "->" _ body:BlockStatement {
+    return {
+      type: "FunctionExpression",
+      id: null,
+      params: params,
+      body: body
+    };
+  }
+
+  FunctionParams = init:FunctionParam* _ last:FunctionParamEnd? {
+    return init.concat([last]);
+  }
+
+  FunctionParam = _ ident:Ident _ "," {return ident;}
+  FunctionParamEnd = ident:Ident  {return ident;}
 
 Literal = value:(number)
   {
@@ -73,14 +95,46 @@ __ = whitespace+
 
 
 number = $([1-9] [0-9]*)
-identifier = $([a-zA-Z] [a-zA-Z0-9]*)
+
+Ident = Identifier / TypedIdentifier
+
+  Identifier = identifier:$([a-zA-Z] [a-zA-Z0-9]*) {
+    return {type:"Identifier", name: identifier}
+  }
+
+  TypedIdentifier = Identifier _ ":" _ TypeClass:Identifier  {
+    return {type:"Identifier", name: identifier, anotation:{TypeClass:TypeClass}}
+  }
+
 """
 code = """
-a : Number = 3
+a : Number = ( a, b, c ) -> 3
 """
+
+
+# right:
+#   type:       FunctionExpression
+#   id:         null
+#   params:
+#     -
+#       type: Identifier
+#       name: a
+#   defaults:
+#     (empty array)
+#   body:
+#     type: BlockStatement
+#     body:
+#       -
+#         type:     ReturnStatement
+#         argument:
+#           type: Identifier
+#           name: a
+#   rest:       null
+#   generator:  false
+#   expression: false
 
 p '-----------' + new Date
 json_dump parse_with_gen peg_parser, code
 p parse_with_gen_and_escodegen peg_parser, code
 p '-----------'
-p get_js_ast "var a = 3;"
+#p get_js_ast "a = function(a){return a; };"
