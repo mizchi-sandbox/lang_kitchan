@@ -2,6 +2,7 @@ escodegen = require 'escodegen'
 esprima = require 'esprima'
 pj = require 'prettyjson'
 PEG = require 'pegjs'
+fs = require 'fs'
 
 p = console.log.bind console
 
@@ -23,118 +24,46 @@ parse_with_gen_and_escodegen = (parser_code, code) ->
 parse_with_gen_and_escodegen_exec = (parser_code, code) ->
   eval parse_with_gen_and_escodegen parser_code, code
 
+#peg_parser = fs.readFileSync('indent_block.pegjs').toString()
+
+#fs.readFileSync('indent_block.pegjs').toString()
 peg_parser = """
-
-
-start = Program
-
-Program = expressions:Expression+ {
-    return {
-      type:"Program",
-      body: expressions
-    }
-  };
-
-Expression
-  = exp:(
-    AssignmentExpression / Literal
-    ) {
-      return {
-        type: "ExpressionStatement",
-        expression: exp
-      };
-    }
-
-AssignmentExpression
-  = left:Identifier _ ":" _ annotationType:Identifier _ "=" _ right:(Literal / Function)
+{
+  var indent_depth = 0;
+  var indentStack = [];
+  }
+start = Line
+Line = indent:SAMEDENT identifier:Identifier _ EOL?
+  children:(INDENT lines:Line* DEDENT {return lines;})
   {
-    return {
-      type: "AssignmentExpression",
-      operator: "=",
-      left: left,
-      right: right
-    };
+    console.log(identifier, indent_depth)
+    return indent+identifier;
   }
 
+INDENT = indent:$(Whitespace+) {
+  indent_depth = indent.length;
+  indentStack.push(indent);
+  }
 
-BlockStatement = Literal {
-  return {
-    type:"BlockStatement",
-    body: []
-  };
+DEDENT
+  = { indent = indentStack.pop(); }
+
+SAMEDENT = i:" "* &{
+  return i.join("") === indent_depth;
 }
 
-Function
-  = "(" _ params: FunctionParams _ ")" _ "->" _ body:BlockStatement {
-    return {
-      type: "FunctionExpression",
-      id: null,
-      params: params,
-      body: body
-    };
-  }
-
-  FunctionParams = init:FunctionParam* _ last:FunctionParamEnd? {
-    return init.concat([last]);
-  }
-
-  FunctionParam = _ ident:Ident _ "," {return ident;}
-  FunctionParamEnd = ident:Ident  {return ident;}
-
-Literal = value:(number)
-  {
-    return {
-      type: "Literal",
-      value: Number(value)
-    };
-  }
-
-whitespace = " "
-_ = whitespace*
-__ = whitespace+
-
-
-number = $([1-9] [0-9]*)
-
-Ident = Identifier / TypedIdentifier
-
-  Identifier = identifier:$([a-zA-Z] [a-zA-Z0-9]*) {
-    return {type:"Identifier", name: identifier}
-  }
-
-  TypedIdentifier = Identifier _ ":" _ TypeClass:Identifier  {
-    return {type:"Identifier", name: identifier, anotation:{TypeClass:TypeClass}}
-  }
+EOL = [\\n\\r\\u2028\\u2029]
+Whitespace = " "
+_ = Whitespace*
+__ = Whitespace+
+Identifier = $([a-zA-Z]+)
 
 """
+
 code = """
-a : Number = ( a, b, c ) -> 3
+ar
+  b
 """
-
-
-# right:
-#   type:       FunctionExpression
-#   id:         null
-#   params:
-#     -
-#       type: Identifier
-#       name: a
-#   defaults:
-#     (empty array)
-#   body:
-#     type: BlockStatement
-#     body:
-#       -
-#         type:     ReturnStatement
-#         argument:
-#           type: Identifier
-#           name: a
-#   rest:       null
-#   generator:  false
-#   expression: false
-
 p '-----------' + new Date
-json_dump parse_with_gen peg_parser, code
-p parse_with_gen_and_escodegen peg_parser, code
-p '-----------'
-#p get_js_ast "a = function(a){return a; };"
+data = parse_with_gen peg_parser, code
+p data
