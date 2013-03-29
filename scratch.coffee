@@ -25,45 +25,68 @@ parse_with_gen_and_escodegen_exec = (parser_code, code) ->
   eval parse_with_gen_and_escodegen parser_code, code
 
 #peg_parser = fs.readFileSync('indent_block.pegjs').toString()
-
-#fs.readFileSync('indent_block.pegjs').toString()
+# peg_parser = fs.readFileSync('indent.pegjs').toString()
 peg_parser = """
-{
-  var indent_depth = 0;
-  var indentStack = [];
-  }
+{var indent = 0; indentStack = [] }
 start = Line
-Line = indent:SAMEDENT identifier:Identifier _ EOL?
-  children:(INDENT lines:Line* DEDENT {return lines;})
+Line = SAMEDENT key:identifier EOL? child:(INDENT_BLOCK / _ ) EOL? {
+    var obj = {}
+    obj[key] = child;
+    return obj;
+  }
+
+INDENT_BLOCK = INDENT lines:Line+ DEDENT
   {
-    console.log(identifier, indent_depth)
-    return indent+identifier;
+    var obj = {}
+
+    //jsonize
+    lines.forEach(function(line){
+      for(var key in line)
+        obj[key] = line[key]
+    });
+    return obj;
   }
 
-INDENT = indent:$(Whitespace+) {
-  indent_depth = indent.length;
-  indentStack.push(indent);
+  INDENT = spaces:$(whitespace*)
+    & {
+      return spaces.length > indent;
+    }
+    {
+      indent = spaces;
+      indentStack.push(indent);
+      console.log("INDENT",spaces.length, indentStack);
+    }
+
+  DEDENT = {
+    console.log("DEDENT", indentStack);
+    indent = indentStack.pop();
+    }
+
+identifier = $([a-z])
+SAMEDENT = spaces:$(whitespace*)
+  & {
+    return spaces.length == indent;
+  }
+  {
+    console.log('SAMEDENT', spaces.length);
+    return spaces;
   }
 
-DEDENT
-  = { indent = indentStack.pop(); }
 
-SAMEDENT = i:" "* &{
-  return i.join("") === indent_depth;
-}
-
+whitespace = " "
+_ = whitespace*
+__ = $(whitespace+)
 EOL = [\\n\\r\\u2028\\u2029]
-Whitespace = " "
-_ = Whitespace*
-__ = Whitespace+
-Identifier = $([a-zA-Z]+)
-
 """
 
 code = """
-ar
+a
   b
+c
 """
+
+
+
 p '-----------' + new Date
 data = parse_with_gen peg_parser, code
 p data
