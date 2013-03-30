@@ -27,12 +27,8 @@ parse_with_gen_and_escodegen_exec = (parser_code, code) ->
 peg_parser = fs.readFileSync('blace.pegjs').toString()
 
 code = """
-{
-  { a }
-  { b }
-  { c }
-}
-{ r }
+a
+  b
 """
 
 p '-----------' + new Date
