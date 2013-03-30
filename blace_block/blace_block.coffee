@@ -29,10 +29,10 @@ peg_parser = fs.readFileSync('blace.pegjs').toString()
 code = """
 {
   { a }
-  { b }
-  { c }
-}
-{ r }
+    { b }
+      { c }
+   }
+ { d }
 """
 
 p '-----------' + new Date
